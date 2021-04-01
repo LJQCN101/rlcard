@@ -19,7 +19,7 @@ def main():
     # Set the iterations numbers and how frequently we evaluate the performance
     evaluate_every = 100
     evaluate_num = 10000
-    episode_num = 100000
+    episode_num = 800000
 
     # The intial memory size
     memory_init_size = 1000
@@ -60,6 +60,8 @@ def main():
         logger = Logger(log_dir)
 
         saver = tf.train.Saver()
+        save_dir = 'models/leduc_holdem_dqn'
+        saver.restore(sess, os.path.join(save_dir, 'model'))
 
         for episode in range(episode_num):
 
@@ -76,22 +78,16 @@ def main():
                 logger.log_performance(episode, _reward)
                 if _reward > _reward_max:
                     # Save model
-                    save_dir = 'models/leduc_holdem_dqn'
                     if not os.path.exists(save_dir):
                         os.makedirs(save_dir)
                     saver.save(sess, os.path.join(save_dir, 'model'))
+                    _reward_max = _reward
 
         # Close files in the logger
         logger.close_files()
 
         # Plot the learning curve
         logger.plot('DQN')
-
-        # Save model
-        save_dir = 'models/leduc_holdem_dqn'
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-        saver.save(sess, os.path.join(save_dir, 'model'))
 
 if __name__ == '__main__':
     main()
