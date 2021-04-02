@@ -17,13 +17,15 @@ eval_env = rlcard.make('no-limit-holdem', config={'seed': 0})
 # Set the iterations numbers and how frequently we evaluate the performance
 evaluate_every = 1
 evaluate_num = 100
-episode_num = 100000
+episode_num = 1000000
 
 # The intial memory size
 memory_init_size = 1000
 
 # Train the agent every X steps
 train_every = 64
+
+_reward_max = -0.5
 
 # The paths for saving the logs and learning curves
 log_dir = './experiments/nolimit_holdem_deepcfr_result/'
@@ -48,7 +50,9 @@ with tf.Session() as sess:
 
     # Initialize global variables
     sess.run(tf.global_variables_initializer())
-
+    # restore checkpoint
+    saver = tf.train.Saver()
+    save_dir = 'models/nolimit_holdem_deepcfr'
     # Init a Logger to plot the learning curve
     logger = Logger(log_dir)
 
@@ -58,18 +62,19 @@ with tf.Session() as sess:
 
         # Evaluate the performance. Play with random agents.
         if episode % evaluate_every == 0:
-            logger.log_performance(env.timestep, tournament(eval_env, evaluate_num)[0])
+            _reward = tournament(eval_env, evaluate_num)[0]
+            logger.log_performance(episode, _reward)
+
+            # Save model
+            if _reward > _reward_max:
+                if not os.path.exists(save_dir):
+                    os.makedirs(save_dir)
+                saver.save(sess, os.path.join(save_dir, 'model'))
+                _reward_max = _reward
 
     # Close files in the logger
     logger.close_files()
 
     # Plot the learning curve
     logger.plot('DeepCFR')
-    
-    # Save model
-    save_dir = 'models/nolimit_holdem_deepcfr'
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    saver = tf.train.Saver()
-    saver.save(sess, os.path.join(save_dir, 'model'))
     
