@@ -12,13 +12,13 @@ from rlcard.utils import Logger
 
 def main():
     # Make environment
-    env = rlcard.make('no-limit-holdem', config={'seed': 0, 'env_num': 16})
+    env = rlcard.make('no-limit-holdem', config={'seed': 0, 'env_num': 16, 'game_player_num': 4})
     eval_env = rlcard.make('no-limit-holdem', config={'seed': 0, 'env_num': 16})
 
     # Set the iterations numbers and how frequently we evaluate the performance
     evaluate_every = 100
     evaluate_num = 1000
-    episode_num = 1000000
+    episode_num = 200000
 
     # The intial memory size
     memory_init_size = 1000
@@ -41,7 +41,7 @@ def main():
 
         # Set up the agents
         agent = DQNAgent(sess,
-                         scope='dqn_1',
+                         scope='dqn',
                          action_num=env.action_num,
                          replay_memory_init_size=memory_init_size,
                          train_every=train_every,
@@ -60,15 +60,17 @@ def main():
                           q_train_every=64,
                           q_mlp_layers=[512,512])
 
-        # random_agent = RandomAgent(action_num=eval_env.action_num)
-        env.set_agents([agent, agent2])
-        eval_env.set_agents([agent, agent2])
-
         # Initialize global variables
         sess.run(tf.global_variables_initializer())
 
         save_dir = 'models/nolimit_holdem_dqn'
         saver = tf.train.Saver()
+        #saver.restore(sess, os.path.join(save_dir, 'model'))
+
+        random_agent = RandomAgent(action_num=eval_env.action_num)
+        env.set_agents([agent, agent, agent2, random_agent])
+        eval_env.set_agents([agent, agent2])
+
         # Init a Logger to plot the learning curve
         logger = Logger(log_dir)
 
@@ -81,7 +83,7 @@ def main():
             for ts in trajectories[0]:
                 agent.feed(ts)
 
-            for ts in trajectories[1]:
+            for ts in trajectories[2]:
                 agent2.feed(ts)
 
             # Evaluate the performance. Play with random agents.
@@ -97,8 +99,9 @@ def main():
         # Close files in the logger
         logger.close_files()
 
-        # Plot the learning curve
-        logger.plot('DQN')
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        saver.save(sess, os.path.join(save_dir, 'model_final'))
     
 if __name__ == '__main__':
     main()

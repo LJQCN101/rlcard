@@ -10,73 +10,84 @@ from rlcard.agents import RandomAgent
 from rlcard.utils import set_global_seed, tournament
 from rlcard.utils import Logger
 
-# Make environment
-env = rlcard.make('limit-holdem', config={'seed': 0})
-eval_env = rlcard.make('limit-holdem', config={'seed': 0})
+def main():
+    # Make environment
+    env = rlcard.make('limit-holdem', config={'seed': 0, 'env_num': 16})
+    eval_env = rlcard.make('limit-holdem', config={'seed': 0, 'env_num': 16})
 
-# Set the iterations numbers and how frequently we evaluate the performance
-evaluate_every = 100
-evaluate_num = 1000
-episode_num = 100000
+    # Set the iterations numbers and how frequently we evaluate the performance
+    evaluate_every = 100
+    evaluate_num = 1000
+    episode_num = 1000000
 
-# The intial memory size
-memory_init_size = 1000
+    # The intial memory size
+    memory_init_size = 1000
 
-# Train the agent every X steps
-train_every = 1
+    # Train the agent every X steps
+    train_every = 1
 
-# The paths for saving the logs and learning curves
-log_dir = './experiments/limit_holdem_dqn_result/'
+    _reward_max = -0.8
 
-# Set a global seed
-set_global_seed(0)
+    # The paths for saving the logs and learning curves
+    log_dir = './experiments/limit_holdem_dqn_result/'
 
-with tf.Session() as sess:
+    # Set a global seed
+    set_global_seed(0)
 
-    # Initialize a global step
-    global_step = tf.Variable(0, name='global_step', trainable=False)
+    with tf.Session() as sess:
 
-    # Set up the agents
-    agent = DQNAgent(sess,
-                     scope='dqn',
-                     action_num=env.action_num,
-                     replay_memory_init_size=memory_init_size,
-                     train_every=train_every,
-                     state_shape=env.state_shape,
-                     mlp_layers=[512,512])
-    random_agent = RandomAgent(action_num=eval_env.action_num)
-    env.set_agents([agent, random_agent])
-    eval_env.set_agents([agent, random_agent])
+        # Initialize a global step
+        global_step = tf.Variable(0, name='global_step', trainable=False)
 
-    # Initialize global variables
-    sess.run(tf.global_variables_initializer())
+        # Set up the agents
+        agent = DQNAgent(sess,
+                         scope='dqn',
+                         action_num=env.action_num,
+                         replay_memory_init_size=memory_init_size,
+                         train_every=train_every,
+                         state_shape=env.state_shape,
+                         mlp_layers=[512,512])
+        random_agent = RandomAgent(action_num=eval_env.action_num)
+        env.set_agents([agent, agent])
+        eval_env.set_agents([agent, random_agent])
 
-    # Init a Logger to plot the learning curve
-    logger = Logger(log_dir)
+        # Initialize global variables
+        sess.run(tf.global_variables_initializer())
 
-    for episode in range(episode_num):
+        save_dir = 'models/limit_holdem_dqn'
+        saver = tf.train.Saver()
+        saver.restore(sess, os.path.join(save_dir, 'model'))
 
-        # Generate data from the environment
-        trajectories, _ = env.run(is_training=True)
+        # Init a Logger to plot the learning curve
+        logger = Logger(log_dir)
 
-        # Feed transitions into agent memory, and train the agent
-        for ts in trajectories[0]:
-            agent.feed(ts)
+        for episode in range(episode_num):
 
-        # Evaluate the performance. Play with random agents.
-        if episode % evaluate_every == 0:
-            logger.log_performance(env.timestep, tournament(eval_env, evaluate_num)[0])
+            # Generate data from the environment
+            trajectories, _ = env.run(is_training=True)
 
-    # Close files in the logger
-    logger.close_files()
+            # Feed transitions into agent memory, and train the agent
+            for ts in trajectories[0]:
+                agent.feed(ts)
+            if len(trajectories) > 1:
+                for ts in trajectories[1]:
+                    agent.feed(ts)
 
-    # Plot the learning curve
-    logger.plot('DQN')
+            # Evaluate the performance. Play with random agents.
+            if episode % evaluate_every == 0:
+                _reward = tournament(eval_env, evaluate_num)[0]
+                logger.log_performance(episode, _reward)
+                if _reward > _reward_max:
+                    if not os.path.exists(save_dir):
+                        os.makedirs(save_dir)
+                    saver.save(sess, os.path.join(save_dir, 'model'))
+                    _reward_max = _reward
+
+        # Close files in the logger
+        logger.close_files()
+
+        # Plot the learning curve
+        logger.plot('DQN')
     
-    # Save model
-    save_dir = 'models/limit_holdem_dqn'
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    saver = tf.train.Saver()
-    saver.save(sess, os.path.join(save_dir, 'model'))
-    
+if __name__ == '__main__':
+    main()

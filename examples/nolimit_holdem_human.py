@@ -10,7 +10,7 @@ from rlcard.utils import print_card
 
 # Make environment
 # Set 'record_action' to True because we need it to print results
-env = rlcard.make('no-limit-holdem', config={'record_action': True})
+env = rlcard.make('no-limit-holdem', config={'record_action': True, 'game_player_num': 3})
 
 human_agent = HumanAgent(env.action_num)
 
@@ -20,7 +20,7 @@ with tf.Session() as sess:
 
     # Set up the agents
     agent = DQNAgent(sess,
-                     scope='dqn_1',
+                     scope='dqn',
                      action_num=env.action_num,
                      replay_memory_init_size=1000,
                      train_every=1,
@@ -41,9 +41,9 @@ with tf.Session() as sess:
 
     saver = tf.train.Saver()
     save_dir = 'models/nolimit_holdem_dqn'
-    saver.restore(sess, os.path.join(save_dir, 'model'))
+    saver.restore(sess, os.path.join(save_dir, 'model_final'))
 
-    env.set_agents([human_agent, agent])
+    env.set_agents([human_agent, agent2, agent2])
 
 
     while (True):
